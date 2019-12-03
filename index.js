@@ -52,6 +52,7 @@ class Server {
       // TODO: might need to inherit from http.IncomingMessage
       const req = {
         headers: switchResponse.headers,
+        url: switchResponse.headers['pb-uri'],
       };
 
       this.handler(req, res);
