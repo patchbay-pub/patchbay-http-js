@@ -19,7 +19,7 @@ class Server {
   }
 
   async listenWorker(index) {
-    const rootUrl = this.patchbayServer + this.patchbayChannel + '?responder=true&switch=true';
+    const rootUrl = this.patchbayServer + '/res' + this.patchbayChannel + '?switch=true';
 
     while (true) {
       const randomChannelId = genRandomChannelId();
@@ -38,7 +38,7 @@ class Server {
       //const res = new stream.PassThrough();
 
       const res = await new Promise((resolve, reject) => {
-        const url = this.patchbayServer + '/' + randomChannelId + '?responder=true';
+        const url = this.patchbayServer + '/' + randomChannelId;
         const serveRequest = https.request(url, {
           method: 'POST'
         }, (res) => {
