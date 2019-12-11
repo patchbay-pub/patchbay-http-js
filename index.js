@@ -42,11 +42,21 @@ class Server {
         const serveRequest = https.request(url, {
           method: 'POST'
         }, (res) => {
+          // must consume according to node docs
+          res.resume();
           //resolve(res);
         });
 
         resolve(serveRequest);
         //res.pipe(serveRequest);
+      });
+
+      // When statusCode is set, set the appropriate patchbay header to pass
+      // it through to the requester.
+      Object.defineProperty(res, 'statusCode', {
+        set: function(val) {
+          this.setHeader('Pb-Status', String(val));
+        }
       });
 
       // TODO: might need to inherit from http.IncomingMessage
