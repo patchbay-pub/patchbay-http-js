@@ -9,7 +9,10 @@ class Server extends EventEmitter {
   constructor() {
     super();
 
-    if (arguments.length === 2) {
+    if (arguments.length === 1) {
+      this._handler = arguments[0];
+    }
+    else if (arguments.length === 2) {
       this._handler = arguments[1];
     }
 
@@ -106,7 +109,7 @@ class Server extends EventEmitter {
 }
 
 function createServer() {
-    return new Server(...arguments);
+  return new Server(...arguments);
 }
 
 function genRandomChannelId() {
