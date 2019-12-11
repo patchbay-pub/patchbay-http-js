@@ -1,12 +1,18 @@
 const https = require('https');
 const stream = require('stream');
+const EventEmitter = require('events');
 
 const requestPrefix = 'pb-req-';
 const responsePrefix = 'pb-res-';
 
-class Server {
-  constructor(handler) {
-    this.handler = handler;
+class Server extends EventEmitter {
+  constructor() {
+    super();
+
+    if (arguments.length === 2) {
+      this._handler = arguments[1];
+    }
+
     this.patchbayServer = 'patchbay.pub';
     this.patchbayChannel = '/';
     this.numWorkers = 1;
@@ -51,21 +57,39 @@ class Server {
         //res.pipe(serveRequest);
       });
 
+      const oldSetHeader = res.setHeader;
+      res.setHeader = function(name, value) {
+        oldSetHeader.call(res, responsePrefix + name, value);
+      };
+
       // When statusCode is set, set the appropriate patchbay header to pass
       // it through to the requester.
       Object.defineProperty(res, 'statusCode', {
         set: function(val) {
-          this.setHeader('Pb-Status', String(val));
+          //this.setHeader('Pb-Status', String(val));
+          oldSetHeader.call(res, 'Pb-Status', String(val));
         }
       });
 
+      const resHeaders = {};
+
+      for (const headerName of Object.keys(switchResponse.headers)) {
+        if (headerName.startsWith(requestPrefix)) {
+          resHeaders[headerName.slice(requestPrefix.length)] = switchResponse.headers[headerName];
+        }
+      }
+
       // TODO: might need to inherit from http.IncomingMessage
       const req = {
-        headers: switchResponse.headers,
+        headers: resHeaders,
         url: switchResponse.headers['pb-uri'],
       };
 
-      this.handler(req, res);
+      if (this._handler) {
+        this._handler(req, res);
+      }
+
+      this.emit('request', req, res);
     }
   }
 
@@ -81,12 +105,8 @@ class Server {
   }
 }
 
-function createServer(options, handler) {
-  if (!handler) {
-    handler = options;
-  }
-
-  return new Server(handler);
+function createServer() {
+    return new Server(...arguments);
 }
 
 function genRandomChannelId() {
