@@ -106,6 +106,10 @@ class Server extends EventEmitter {
     }
     this.patchbayChannel = channelId;
   }
+
+  setNumWorkers(numWorkers) {
+    this.numWorkers = numWorkers;
+  }
 }
 
 function createServer() {
