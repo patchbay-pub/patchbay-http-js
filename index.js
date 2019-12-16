@@ -2,8 +2,8 @@ const https = require('https');
 const stream = require('stream');
 const EventEmitter = require('events');
 
-const requestPrefix = 'pb-req-';
-const responsePrefix = 'pb-res-';
+const requestPrefix = 'pb-h-';
+const responsePrefix = 'pb-h-';
 
 class Server extends EventEmitter {
   constructor() {
