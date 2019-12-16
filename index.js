@@ -30,70 +30,81 @@ class Server extends EventEmitter {
   async listenWorker(index) {
     const rootUrl = this.patchbayServer + '/res' + this.patchbayChannel + '?switch=true';
 
-    while (true) {
-      const randomChannelId = genRandomChannelId();
+    const runLoop = async () => {
+      while (true) {
+        const randomChannelId = genRandomChannelId();
 
-      const switchResponse = await new Promise((resolve, reject) => {
-        const switchRequest = https.request(rootUrl, {
-          method: 'POST'
-        }, (res) => {
-          resolve(res);
+        const switchResponse = await new Promise((resolve, reject) => {
+          const switchRequest = https.request(rootUrl, {
+            method: 'POST'
+          }, (res) => {
+            resolve(res);
+          });
+
+          switchRequest.on('error', (e) => {
+            console.error("Switch request error");
+            console.error(e);
+            // TODO: Will this leak memory from resursion?
+            setTimeout(runLoop, 3000);
+          });
+
+          switchRequest.write(randomChannelId);
+          switchRequest.end();
         });
 
-        switchRequest.write(randomChannelId);
-        switchRequest.end();
-      });
+        //const res = new stream.PassThrough();
 
-      //const res = new stream.PassThrough();
+        const res = await new Promise((resolve, reject) => {
+          const url = this.patchbayServer + '/' + randomChannelId;
+          const serveRequest = https.request(url, {
+            method: 'POST'
+          }, (res) => {
+            // must consume according to node docs
+            res.resume();
+            //resolve(res);
+          });
 
-      const res = await new Promise((resolve, reject) => {
-        const url = this.patchbayServer + '/' + randomChannelId;
-        const serveRequest = https.request(url, {
-          method: 'POST'
-        }, (res) => {
-          // must consume according to node docs
-          res.resume();
-          //resolve(res);
+          resolve(serveRequest);
+          //res.pipe(serveRequest);
         });
 
-        resolve(serveRequest);
-        //res.pipe(serveRequest);
-      });
+        const oldSetHeader = res.setHeader;
+        res.setHeader = function(name, value) {
+          oldSetHeader.call(res, responsePrefix + name, value);
+        };
 
-      const oldSetHeader = res.setHeader;
-      res.setHeader = function(name, value) {
-        oldSetHeader.call(res, responsePrefix + name, value);
-      };
+        // When statusCode is set, set the appropriate patchbay header to pass
+        // it through to the requester.
+        Object.defineProperty(res, 'statusCode', {
+          set: function(val) {
+            //this.setHeader('Pb-Status', String(val));
+            oldSetHeader.call(res, 'Pb-Status', String(val));
+          }
+        });
 
-      // When statusCode is set, set the appropriate patchbay header to pass
-      // it through to the requester.
-      Object.defineProperty(res, 'statusCode', {
-        set: function(val) {
-          //this.setHeader('Pb-Status', String(val));
-          oldSetHeader.call(res, 'Pb-Status', String(val));
+        const resHeaders = {};
+
+        for (const headerName of Object.keys(switchResponse.headers)) {
+          if (headerName.startsWith(requestPrefix)) {
+            resHeaders[headerName.slice(requestPrefix.length)] = switchResponse.headers[headerName];
+          }
         }
-      });
 
-      const resHeaders = {};
+        // TODO: might need to inherit from http.IncomingMessage
+        const req = {
+          headers: resHeaders,
+          url: switchResponse.headers['pb-uri'],
+        };
 
-      for (const headerName of Object.keys(switchResponse.headers)) {
-        if (headerName.startsWith(requestPrefix)) {
-          resHeaders[headerName.slice(requestPrefix.length)] = switchResponse.headers[headerName];
+        if (this._handler) {
+          this._handler(req, res);
         }
+
+        this.emit('request', req, res);
       }
+    };
 
-      // TODO: might need to inherit from http.IncomingMessage
-      const req = {
-        headers: resHeaders,
-        url: switchResponse.headers['pb-uri'],
-      };
-
-      if (this._handler) {
-        this._handler(req, res);
-      }
-
-      this.emit('request', req, res);
-    }
+    await runLoop();
   }
 
   setPatchbayServer(server) {
