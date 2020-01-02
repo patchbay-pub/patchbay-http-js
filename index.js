@@ -1,4 +1,5 @@
 const https = require('https');
+//const https = require('http');
 const stream = require('stream');
 const EventEmitter = require('events');
 
@@ -35,16 +36,24 @@ class Server extends EventEmitter {
         const randomChannelId = genRandomChannelId();
 
         const switchResponse = await new Promise((resolve, reject) => {
-          const switchRequest = https.request(rootUrl, {
-            method: 'POST'
-          }, (res) => {
+          const switchRequestOptions = {
+            method: 'POST',
+          };
+
+          if (this._authToken) {
+            switchRequestOptions.headers = {
+              'Pb-Token': this._authToken,
+            };
+          }
+
+          const switchRequest = https.request(rootUrl, switchRequestOptions, (res) => {
             resolve(res);
           });
 
           switchRequest.on('error', (e) => {
             console.error("Switch request error");
             console.error(e);
-            // TODO: Will this leak memory from resursion?
+            // TODO: Will this leak memory from recursion?
             setTimeout(runLoop, 3000);
           });
 
@@ -67,6 +76,15 @@ class Server extends EventEmitter {
           resolve(serveRequest);
           //res.pipe(serveRequest);
         });
+        
+        res.on('error', (e) => {
+          console.error("Generic res error");
+          console.error(e);
+        });
+        
+        if (this._authToken) {
+          res.setHeader('Pb-Token', this._authToken);
+        }
 
         const oldSetHeader = res.setHeader;
         res.setHeader = function(name, value) {
@@ -120,6 +138,10 @@ class Server extends EventEmitter {
 
   setNumWorkers(numWorkers) {
     this.numWorkers = numWorkers;
+  }
+
+  setAuthToken(token) {
+    this._authToken = token;
   }
 }
 
