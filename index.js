@@ -112,6 +112,7 @@ class Server extends EventEmitter {
         const req = {
           headers: resHeaders,
           url: switchResponse.headers['pb-uri'],
+          on: switchResponse.on.bind(switchResponse),
         };
 
         if (this._handler) {
