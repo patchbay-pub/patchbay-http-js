@@ -111,6 +111,7 @@ class Server extends EventEmitter {
         // TODO: might need to inherit from http.IncomingMessage
         const req = {
           headers: resHeaders,
+          method: switchResponse.headers['pb-method'],
           url: switchResponse.headers['pb-uri'],
           on: switchResponse.on.bind(switchResponse),
         };
