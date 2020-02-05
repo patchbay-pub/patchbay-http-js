@@ -114,6 +114,7 @@ class Server extends EventEmitter {
           method: switchResponse.headers['pb-method'],
           url: switchResponse.headers['pb-uri'],
           on: switchResponse.on.bind(switchResponse),
+          pipe: switchResponse.pipe.bind(switchResponse),
         };
 
         if (this._handler) {
